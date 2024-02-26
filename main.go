@@ -5,9 +5,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/spf13/viper"
@@ -25,7 +25,7 @@ type Creds struct {
 }
 
 type SecurityGroup struct {
-    SgID         string // 修改这里以匹配字段访问
+    SgID         string `mapstructure:"id"` // 确保标签正确映射了TOML文件中的键
     Ports        string
     Protocol     string
     Action       string
@@ -69,28 +69,34 @@ func sendDingTalkMessage(newIP string) {
 	}
 }
 
-
-func getResolverIPs() []string {
-    var ips []string
+func getResolverIPs() ([]string, error) {
     // ips := []string{"175.178.168.11", "175.178.168.12", "175.178.168.13"}
-    resolvers := []string{"resolver1.opendns.com", "resolver2.opendns.com", "resolver3.opendns.com", "resolver4.opendns.com"}
+    var ips []string
+    // 构建并执行shell命令
+    cmd := "for i in {1..4};do dig +short myip.opendns.com @resolver$i.opendns.com;done | sort -n | uniq"
+    execCmd := exec.Command("bash", "-c", cmd) // 使用bash执行命令
 
-    for _, resolver := range resolvers {
-        ipAddresses, err := net.LookupIP(resolver)
-        if err != nil {
-            fmt.Printf("Failed to lookup IP for %s: %v\n", resolver, err)
-            continue
-        }
-        for _, ipAddress := range ipAddresses {
-            ips = append(ips, ipAddress.String()) // 将IP地址转换为字符串并添加到ips切片中
-        }
+    var out bytes.Buffer
+    execCmd.Stdout = &out // 将命令的标准输出连接到out变量
+
+    // 运行命令
+    err := execCmd.Run()
+    if err != nil {
+        return nil, err // 如果命令执行失败，返回错误
     }
-    return ips
+
+    // 处理命令输出
+    output := strings.TrimSpace(out.String()) // 去除输出字符串的首尾空白字符
+    if output != "" {
+        ips = strings.Split(output, "\n") // 按换行符分割输出字符串，得到IP地址列表
+    }
+    fmt.Println("ips: ", ips)
+    return ips, nil // 返回去重并排序后的IP地址列表
 }
 
 
 func getUniqueIPs() map[string]bool {
-    ips := getResolverIPs()
+    ips,_ := getResolverIPs()
     uniqueIPs := make(map[string]bool)
     for _, ip := range ips {
         uniqueIPs[ip] = true
@@ -201,72 +207,61 @@ func update_security_group_policy(creds Creds, sg SecurityGroup, ip string, poli
 }
 
 func main() {
-    initConfig() // 初始化配置
+    initConfig()
 
-    // 从配置文件读取Creds和SecurityGroups
     var credsConfig []Creds
-    var sgConfig []SecurityGroup
     err := viper.UnmarshalKey("creds", &credsConfig)
     if err != nil {
         fmt.Println("Unable to decode into struct", err)
+        return
     }
+
+    var sgConfig []SecurityGroup
     err = viper.UnmarshalKey("securityGroups", &sgConfig)
     if err != nil {
         fmt.Println("Unable to decode into struct", err)
+        return
     }
 
     uniqueIPs := getUniqueIPs()
-    existingIPs := readWriteIPs("ips.txt", nil, "r")
+    existingIPs := readWriteIPs("./ips.txt", nil, "r")
+    var newIPs []string // 收集新增的IP
+    for ip := range uniqueIPs {
+        newIPs = append(newIPs, ip) // 记录新增的IP
+    }
 
-    var policyIndex int64 = 0
-    var updateOccurred bool = false
-
-    // 此处逻辑根据实际情况调整，以匹配配置文件中的Creds和SecurityGroups
     for _, cred := range credsConfig {
-        for _, sgID := range cred.SecurityGroups { // 使用正确的字段名
+        for _, sgID := range cred.SecurityGroups {
+            var sg SecurityGroup
+            // 查找sgID对应的SecurityGroup配置
+            for _, s := range sgConfig {
+                if s.SgID == sgID {
+                    sg = s
+                    break
+                }
+            }
+            policyIndex := int64(0) // 初始化PolicyIndex
             for ip := range uniqueIPs {
                 if _, exists := existingIPs[ip]; !exists {
-                    // 找到对应的SecurityGroup
-                    var sg SecurityGroup
-                    for _, s := range sgConfig {
-                        if s.SgID == sgID { // 使用正确的字段名
-                            sg = s
-                            break
-                        }
-                    }
-                    // fmt.Printf("cred:%s, sg:%s, ip:%s, policyIndex:%s\n",cred, sg, ip, policyIndex)
-                    fmt.Printf("cred:%s\n",cred)
-                    err := update_security_group_policy(cred, sg, ip, policyIndex)
+                    // 对每个新IP和每个安全组执行更新操作
+                    err := update_security_group_policy(cred, sg, ip, policyIndex) // 注意：policyIndex如何处理取决于业务逻辑
                     if err != nil {
-                        fmt.Printf("Error updating security group policy: %v\n", err)
+                        fmt.Printf("Error updating security group %s policy: %v\n", sgID, err)
                         continue
                     }
-                    policyIndex++
-                    updateOccurred = true
+                    policyIndex++ // 每成功更新一个IP，PolicyIndex加1
                 }
             }
         }
-    }    
-
-    // 构建IP地址字符串
-    var newIPs []string
-    for ip := range uniqueIPs {
-        if _, exists := existingIPs[ip]; !exists {
-            newIPs = append(newIPs, ip)
-        }
-    }
-
-    if updateOccurred {
-        newIPsString := strings.Join(newIPs, ", ")
-        // 更新成功的逻辑，例如发送钉钉机器人消息
-        sendDingTalkMessage(newIPsString)
-        fmt.Println("更新成功，已向钉钉机器人发送消息")
-    } else {
-        fmt.Println("没有发现新的IP")
     }
 
     // 如果有新的IP被添加，更新IPs文件
-    if policyIndex > 0 {
+    if len(newIPs) > 0 {
         readWriteIPs("ips.txt", uniqueIPs, "w")
+        newIPsString := strings.Join(newIPs, ", ")
+        sendDingTalkMessage(fmt.Sprintf("新增的IP地址: %s", newIPsString)) // 发送新增的IP到钉钉
+        fmt.Println("更新成功，已向钉钉机器人发送消息")
+    } else {
+        fmt.Println("没有发现新的IP或者安全组无需更新")
     }
 }
