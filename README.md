@@ -1,7 +1,8 @@
 # 前置条件
-安装dig命令
+1. 给每个需要修改的安全组提前创建好任意3条规则
+2. 安装dig命令
 ## ubuntu and Debian
-```
+``` 
 sudo apt install dnsutils
 ```
 ### Centos

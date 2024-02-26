@@ -51,7 +51,7 @@ func initConfig() {
 	}
 }
 
-func sendDingTalkMessage(newIP string) {
+func sendDingTalkMessage(newIP string, sg string) {
 	webhook := viper.GetString("dingtalk.webhook")
 	message := DingTalkMessage{
 		Msgtype: "text",
@@ -59,7 +59,7 @@ func sendDingTalkMessage(newIP string) {
 			Content string `json:"content"`
 		}{
 			// 在这里添加关键词“IP变化”
-			Content: fmt.Sprintf("IP变化 -新IP地址已添加到安全组: %s\n", newIP),
+			Content: fmt.Sprintf("IP变化 -新IP地址%s已添加到安全组%s.\n", newIP, sg),
 		},
 	}
 
@@ -101,7 +101,7 @@ func getResolverIPs() ([]string, error) {
             }
         }
     }
-    fmt.Println("ips: ", ips)
+    fmt.Println("ips:-- ", ips)
     return ips, nil // 返回去重并排序后的IP地址列表
 }
 
@@ -141,6 +141,32 @@ func readWriteIPs(filePath string, ips map[string]bool, mode string) map[string]
             file.WriteString(ip + "\n")
         }
     }
+    return nil
+}
+
+func readFromFile(filePath string, ips map[string]bool, mode string) map[string]bool {
+    file, err := os.Open(filePath)
+    if err != nil {
+        return make(map[string]bool)
+    }
+    defer file.Close()
+
+    scanner := bufio.NewScanner(file)
+    result := make(map[string]bool)
+    for scanner.Scan() {
+        result[scanner.Text()] = true
+    }
+    return result
+}
+
+func writeToFile(filePath string, ip string) map[string]bool {
+    file, err := os.Create(filePath)
+    if err != nil {
+        fmt.Println("Error creating file:", err)
+        return nil
+    }
+    defer file.Close()
+    file.WriteString(ip + "\n")
     return nil
 }
 
@@ -235,7 +261,7 @@ func main() {
     }
 
     uniqueIPs := getUniqueIPs()
-    existingIPs := readWriteIPs("./ips.txt", nil, "r")
+    existingIPs := readFromFile("./ips.txt", nil, "r") //从ips.txt中读取ip
     var newIPs []string // 收集新增的IP
     for ip := range uniqueIPs {
         newIPs = append(newIPs, ip) // 记录新增的IP
@@ -261,11 +287,14 @@ func main() {
                         continue
 
                     }
-                    sendDingTalkMessage(fmt.Sprintf("新增的IP地址--: %s", single_ip)) // 发送新增的IP到钉钉
-                    fmt.Printf("ip-->: %s \n", single_ip)
+                    fmt.Printf("ip-->: %s in sg-->: %s\n", single_ip,sgID)
+                    sendDingTalkMessage(single_ip, sgID) // 发送新增的IP到钉钉
                     policyIndex++ // 每成功更新一个IP，PolicyIndex加1
+                } else {
+                    fmt.Printf("出口IP地址无变化，暂时不需要更新安全组中的规则\n")
                 }
             }
         }
     }
+    readWriteIPs("ips.txt", uniqueIPs, "w") //不论ip是否有变化，都重新写入一次
 }
