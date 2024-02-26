@@ -13,10 +13,10 @@ sudo yum install bind-util
 编译成Linux客户端
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o modifyingSecurityGroup_linux main.go
 
-编译成Windows客户端
+编译成Windows客户端 (暂时不支持)
 CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -a -o modifyingSecurityGroup.exe main.go
 
-编译成Mac客户端
+编译成Mac客户端 (暂时不支持)
 CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -a -o modifyingSecurityGroup_mac main.go
 ```
 # 创建cron任务
@@ -27,5 +27,5 @@ crontab -e ，然后添加以下内容
 ```
 
 # 注意
-1. 仅限于linux平台
-2. 没有适配ipv6的地址
+1. 暂时仅支持linux平台
+2. 暂时仅支持ipv6的地址
