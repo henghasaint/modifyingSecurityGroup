@@ -59,7 +59,7 @@ func sendDingTalkMessage(newIP string) {
 			Content string `json:"content"`
 		}{
 			// 在这里添加关键词“IP变化”
-			Content: fmt.Sprintf("IP变化 -新IP地址已添加到安全组: %s", newIP),
+			Content: fmt.Sprintf("IP变化 -新IP地址已添加到安全组: %s\n", newIP),
 		},
 	}
 
@@ -90,10 +90,10 @@ func getResolverIPs() ([]string, error) {
 
     // 处理命令输出
     output := strings.TrimSpace(out.String()) // 去除输出字符串的首尾空白字符
-    fmt.Printf("output: %s", output)
+    fmt.Printf("output: %s\n", output)
     if output != "" {
         tempIPs := strings.Split(output, "\n") // 按换行符分割输出字符串
-        fmt.Printf("tempIPs: %s", tempIPs)
+        fmt.Printf("tempIPs: %s\n", tempIPs)
         for _, ip := range tempIPs {
             parsedIP := net.ParseIP(ip)
             if parsedIP.To4() != nil { // 检查是否为IPv4地址
@@ -206,14 +206,14 @@ func update_security_group_policy(creds Creds, sg SecurityGroup, ip string, poli
     // 返回的resp是一个ReplaceSecurityGroupPolicyResponse的实例，与请求对象对应
     response, err := client.ReplaceSecurityGroupPolicy(request)
     if _, ok := err.(*errors.TencentCloudSDKError); ok {
-            fmt.Printf("An API error has returned: %s", err)
+            fmt.Printf("An API error has returned: %s\n", err)
             return err
     }
     if err != nil {
             panic(err)
     }
     // 输出json格式的字符串回包
-    fmt.Printf("%s", response.ToJsonString())
+    fmt.Printf("response: %s\n", response.ToJsonString())
     return nil
 }
 
@@ -261,7 +261,7 @@ func main() {
                         continue
 
                     }
-                    sendDingTalkMessage(fmt.Sprintf("新增的IP地址: %s", single_ip)) // 发送新增的IP到钉钉
+                    sendDingTalkMessage(fmt.Sprintf("新增的IP地址--: %s", single_ip)) // 发送新增的IP到钉钉
                     fmt.Printf("ip-->: %s \n", single_ip)
                     policyIndex++ // 每成功更新一个IP，PolicyIndex加1
                 }
