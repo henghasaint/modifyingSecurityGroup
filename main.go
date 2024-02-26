@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+    "net"
 	"os"
 	"os/exec"
 	"strings"
@@ -66,14 +67,16 @@ func sendDingTalkMessage(newIP string) {
 	_, err := http.Post(webhook, "application/json", bytes.NewBuffer(messageBytes))
 	if err != nil {
 		fmt.Printf("发送钉钉消息失败: %v\n", err)
-	}
+	} else { 
+        fmt.Printf("发送钉钉消息成功\n")
+    }
 }
 
 func getResolverIPs() ([]string, error) {
     // ips := []string{"175.178.168.11", "175.178.168.12", "175.178.168.13"}
     var ips []string
     // 构建并执行shell命令
-    cmd := "for i in {1..4};do dig +short myip.opendns.com @resolver$i.opendns.com;done | sort -n | uniq"
+    cmd := "for i in {1..4};do dig +timeout=6 +short myip.opendns.com @resolver$i.opendns.com;done | sort -n | uniq"
     execCmd := exec.Command("bash", "-c", cmd) // 使用bash执行命令
 
     var out bytes.Buffer
@@ -87,8 +90,16 @@ func getResolverIPs() ([]string, error) {
 
     // 处理命令输出
     output := strings.TrimSpace(out.String()) // 去除输出字符串的首尾空白字符
+    fmt.Printf("output: %s", output)
     if output != "" {
-        ips = strings.Split(output, "\n") // 按换行符分割输出字符串，得到IP地址列表
+        tempIPs := strings.Split(output, "\n") // 按换行符分割输出字符串
+        fmt.Printf("tempIPs: %s", tempIPs)
+        for _, ip := range tempIPs {
+            parsedIP := net.ParseIP(ip)
+            if parsedIP.To4() != nil { // 检查是否为IPv4地址
+                ips = append(ips, ip)
+            }
+        }
     }
     fmt.Println("ips: ", ips)
     return ips, nil // 返回去重并排序后的IP地址列表
@@ -241,27 +252,20 @@ func main() {
                 }
             }
             policyIndex := int64(0) // 初始化PolicyIndex
-            for ip := range uniqueIPs {
-                if _, exists := existingIPs[ip]; !exists {
+            for single_ip := range uniqueIPs {
+                if _, exists := existingIPs[single_ip]; !exists {
                     // 对每个新IP和每个安全组执行更新操作
-                    err := update_security_group_policy(cred, sg, ip, policyIndex) // 注意：policyIndex如何处理取决于业务逻辑
+                    err := update_security_group_policy(cred, sg, single_ip, policyIndex) // 注意：policyIndex如何处理取决于业务逻辑
                     if err != nil {
                         fmt.Printf("Error updating security group %s policy: %v\n", sgID, err)
                         continue
+
                     }
+                    sendDingTalkMessage(fmt.Sprintf("新增的IP地址: %s", single_ip)) // 发送新增的IP到钉钉
+                    fmt.Printf("ip-->: %s \n", single_ip)
                     policyIndex++ // 每成功更新一个IP，PolicyIndex加1
                 }
             }
         }
-    }
-
-    // 如果有新的IP被添加，更新IPs文件
-    if len(newIPs) > 0 {
-        readWriteIPs("ips.txt", uniqueIPs, "w")
-        newIPsString := strings.Join(newIPs, ", ")
-        sendDingTalkMessage(fmt.Sprintf("新增的IP地址: %s", newIPsString)) // 发送新增的IP到钉钉
-        fmt.Println("更新成功，已向钉钉机器人发送消息")
-    } else {
-        fmt.Println("没有发现新的IP或者安全组无需更新")
     }
 }

@@ -8,17 +8,17 @@ webhook = "https://oapi.dingtalk.com/robot/send?access_token=babea8b7dc7aec71d37
 SecretID = "AKIDTmtgHfMtEKNDqGzWoshGhXF3ey3uycnn"
 SecretKey = "oQp0xd7e2GFzWqvpXZP3Sda1FG4dvy5x"
 Region = "ap-guangzhou"
-SecurityGroups = ["sg-7hiqraf9"]
+SecurityGroups = ["sg-7hiqraf9","sg-1jgjrczl"]
 
 # 腾讯云-知买帐号
 [[creds]]
 SecretID = "AKIDDH5duud6JFtGNDm58vRP7cqnTs0rRknZ"
 SecretKey = "WlkSs2wZv0oMcbJkuoRntiHZbMp20h6E"
 Region = "ap-guangzhou"
-SecurityGroups = ["sg-dqvzs1xn"]
+SecurityGroups = ["sg-dqvzs1xn","sg-ehinr8bl"]
 
 # SecurityGroups 配置
-# 501ssh
+# 501auto白名单
 [[securityGroups]]
 id = "sg-7hiqraf9"
 ports = "22,3306,80,443,8848"
@@ -26,6 +26,15 @@ protocol = "TCP"
 action = "ACCEPT"
 description = "创益办公室ip"
 
+# 502auto白名单
+[[securityGroups]]
+id = "sg-1jgjrczl"
+ports = "3306,3389,80,443,8123,8124,63500"
+protocol = "TCP"
+action = "ACCEPT"
+description = "创益办公室ip"
+
+# 502web&gitlab白名单专用
 [[securityGroups]]
 id = "sg-dqvzs1xn"
 ports = "80,443,22,8848,9848,3389,8443,7918,7474,7687"
@@ -33,27 +42,10 @@ protocol = "TCP"
 action = "ACCEPT"
 description = "创益办公室ip"
 
-# 501web
+# 502数据库白名单专用
 [[securityGroups]]
-id = "sg-cyc4832d"
-ports = "80,443,8848"
+id = "sg-ehinr8bl"
+ports = "3306,27017,6379,37017,47017,8123,9123,9124,9000,8000"
 protocol = "TCP"
 action = "ACCEPT"
-description = "创益办公室ip1"
-
-# 501数据库 22862为TDSQL-C端口
-[[securityGroups]]
-id = "sg-otjf02fj"
-ports = "3306,22862,6379,8123,9123,9124,9000"
-protocol = "TCP"
-action = "ACCEPT"
-description = "创益办公室ip1"
-
-# 501yearning 8000为yearning页面端口，22为本地访问
-[[securityGroups]]
-id = "sg-d77q09bh"
-ports = "22,8000"
-protocol = "TCP"
-action = "ACCEPT"
-description = "创益办公室ip1"
-
+description = "创益办公室ip"
