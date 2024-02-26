@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+    "time"
 
 	"github.com/spf13/viper"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
@@ -41,6 +42,10 @@ type DingTalkMessage struct {
 	} `json:"text"`
 }
 
+func currentDateTime() string {
+    return time.Now().Format("2006-01-02 15:04:05")
+}
+
 func initConfig() {
 	viper.SetConfigName("config")
 	viper.SetConfigType("toml")
@@ -66,9 +71,9 @@ func sendDingTalkMessage(newIP string, sg string) {
 	messageBytes, _ := json.Marshal(message)
 	_, err := http.Post(webhook, "application/json", bytes.NewBuffer(messageBytes))
 	if err != nil {
-		fmt.Printf("发送钉钉消息失败: %v\n", err)
+		fmt.Printf(currentDateTime()," 发送钉钉消息失败: %v\n", err)
 	} else { 
-        fmt.Printf("发送钉钉消息成功\n")
+        fmt.Printf(currentDateTime()," 发送钉钉消息成功\n")
     }
 }
 
@@ -90,10 +95,10 @@ func getResolverIPs() ([]string, error) {
 
     // 处理命令输出
     output := strings.TrimSpace(out.String()) // 去除输出字符串的首尾空白字符
-    fmt.Printf("output: %s\n", output)
+    fmt.Printf(currentDateTime()," output: %s\n", output)
     if output != "" {
         tempIPs := strings.Split(output, "\n") // 按换行符分割输出字符串
-        fmt.Printf("tempIPs: %s\n", tempIPs)
+        fmt.Printf(currentDateTime()," tempIPs: %s\n", tempIPs)
         for _, ip := range tempIPs {
             parsedIP := net.ParseIP(ip)
             if parsedIP.To4() != nil { // 检查是否为IPv4地址
@@ -101,7 +106,7 @@ func getResolverIPs() ([]string, error) {
             }
         }
     }
-    fmt.Println("ips:-- ", ips)
+    fmt.Println(currentDateTime()," ips:", ips)
     return ips, nil // 返回去重并排序后的IP地址列表
 }
 
@@ -132,7 +137,7 @@ func readWriteIPs(filePath string, ips map[string]bool, mode string) map[string]
     } else if mode == "w" {
         file, err := os.Create(filePath)
         if err != nil {
-            fmt.Println("Error creating file:", err)
+            fmt.Println(currentDateTime()," sError creating file:", err)
             return nil
         }
         defer file.Close()
@@ -179,8 +184,8 @@ func update_security_group_policy(creds Creds, sg SecurityGroup, ip string, poli
 
     request := vpc.NewReplaceSecurityGroupPolicyRequest()
     request.SecurityGroupId = common.StringPtr(sg.SgID)
-    fmt.Printf("version is :  %v\n", version)
-    fmt.Printf("policyIndex is :  %v\n", policyIndex)
+    fmt.Printf(currentDateTime(), " version is :  %v\n", version)
+    fmt.Printf(currentDateTime(), " policyIndex is :  %v\n", policyIndex)
     request.SecurityGroupPolicySet = &vpc.SecurityGroupPolicySet{
         Version: version,
         Ingress: []*vpc.SecurityGroupPolicy{
@@ -206,14 +211,14 @@ func update_security_group_policy(creds Creds, sg SecurityGroup, ip string, poli
     // 返回的resp是一个ReplaceSecurityGroupPolicyResponse的实例，与请求对象对应
     response, err := client.ReplaceSecurityGroupPolicy(request)
     if _, ok := err.(*errors.TencentCloudSDKError); ok {
-            fmt.Printf("An API error has returned: %s\n", err)
+            fmt.Printf(currentDateTime(), " An API error has returned: %s\n", err)
             return err
     }
     if err != nil {
             panic(err)
     }
     // 输出json格式的字符串回包
-    fmt.Printf("response: %s\n", response.ToJsonString())
+    fmt.Printf(currentDateTime(), " response: %s\n", response.ToJsonString())
     return nil
 }
 
@@ -223,19 +228,19 @@ func main() {
     var credsConfig []Creds
     err := viper.UnmarshalKey("creds", &credsConfig)
     if err != nil {
-        fmt.Println("Unable to decode into struct", err)
+        fmt.Println(currentDateTime(), " Unable to decode into struct", err)
         return
     }
 
     var sgConfig []SecurityGroup
     err = viper.UnmarshalKey("securityGroups", &sgConfig)
     if err != nil {
-        fmt.Println("Unable to decode into struct", err)
+        fmt.Println(currentDateTime(), " Unable to decode into struct", err)
         return
     }
 
     uniqueIPs := getUniqueIPs()
-    existingIPs := readFromFile("./ips.txt", nil, "r") //从ips.txt中读取ip
+    existingIPs := readWriteIPs("./ips.txt", nil, "r") //从ips.txt中读取ip
     var newIPs []string // 收集新增的IP
     for ip := range uniqueIPs {
         newIPs = append(newIPs, ip) // 记录新增的IP
@@ -257,15 +262,15 @@ func main() {
                     // 对每个新IP和每个安全组执行更新操作
                     err := update_security_group_policy(cred, sg, single_ip, policyIndex) // 注意：policyIndex如何处理取决于业务逻辑
                     if err != nil {
-                        fmt.Printf("Error updating security group %s policy: %v\n", sgID, err)
+                        fmt.Printf(currentDateTime(), " Error updating security group %s policy: %v\n", sgID, err)
                         continue
 
                     }
-                    fmt.Printf("ip-->: %s in sg-->: %s\n", single_ip,sgID)
+                    fmt.Printf(currentDateTime(), " ip-: %s in sg-: %s\n", single_ip,sgID)
                     sendDingTalkMessage(single_ip, sgID) // 发送新增的IP到钉钉
                     policyIndex++ // 每成功更新一个IP，PolicyIndex加1
                 } else {
-                    fmt.Printf("出口IP地址无变化，暂时不需要更新安全组中的规则\n")
+                    fmt.Printf(currentDateTime(), " 出口IP地址无变化，暂时不需要更新安全组中的规则\n")
                 }
             }
         }

@@ -20,6 +20,8 @@ CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -a -o modifyingSecurityGroup.ex
 编译成Mac客户端 (暂时不支持)
 CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -a -o modifyingSecurityGroup_mac main.go
 ```
+复制config.toml和modifyingSecurityGroup_linux到Linux服务器上，在config.toml中配置适当的认证信息和安全组
+
 # 创建cron任务
 ```
 crontab -e ，然后添加以下内容
