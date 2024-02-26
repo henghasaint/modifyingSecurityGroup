@@ -144,32 +144,6 @@ func readWriteIPs(filePath string, ips map[string]bool, mode string) map[string]
     return nil
 }
 
-func readFromFile(filePath string, ips map[string]bool, mode string) map[string]bool {
-    file, err := os.Open(filePath)
-    if err != nil {
-        return make(map[string]bool)
-    }
-    defer file.Close()
-
-    scanner := bufio.NewScanner(file)
-    result := make(map[string]bool)
-    for scanner.Scan() {
-        result[scanner.Text()] = true
-    }
-    return result
-}
-
-func writeToFile(filePath string, ip string) map[string]bool {
-    file, err := os.Create(filePath)
-    if err != nil {
-        fmt.Println("Error creating file:", err)
-        return nil
-    }
-    defer file.Close()
-    file.WriteString(ip + "\n")
-    return nil
-}
-
 func geSG_version(sgID string, creds Creds) (*string, error) {
     credential := common.NewCredential(
         creds.SecretID,
