@@ -81,7 +81,7 @@ func getResolverIPs() ([]string, error) {
     // ips := []string{"175.178.168.11", "175.178.168.12", "175.178.168.13"}
     var ips []string
     // 构建并执行shell命令
-    cmd := "for i in {1..4};do dig +timeout=6 +short myip.opendns.com @resolver$i.opendns.com;done | sort -n | uniq"
+    cmd := "for i in {1..4};do dig +timeout=10 +short myip.opendns.com @resolver$i.opendns.com;done | sort -n | uniq"
     execCmd := exec.Command("bash", "-c", cmd) // 使用bash执行命令
 
     var out bytes.Buffer
