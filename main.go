@@ -106,7 +106,7 @@ func getResolverIPs() ([]string, error) {
             }
         }
     }
-    fmt.Println(currentDateTime()," ips:", ips)
+    fmt.Println(currentDateTime()," 最新获得的ip:", ips)
     return ips, nil // 返回去重并排序后的IP地址列表
 }
 
