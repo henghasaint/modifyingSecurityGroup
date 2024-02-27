@@ -1,7 +1,6 @@
 # 前置条件
-1. 如果你的局域网能一次能获得N个出口ip，请预先给每个需要修改的安全组提前创建好任意N条规则,第N+1条之后规则不会被修改
-2. 安装dig命令
-## ubuntu and Debian
+## 1. 安装dig命令
+### ubuntu and Debian
 ``` 
 sudo apt install dnsutils
 ```
@@ -9,6 +8,11 @@ sudo apt install dnsutils
 ``` 
 sudo yum install bind-util
 ```
+## 2. 获得你当前局域网的出口ip
+for i in {1..4};do dig +timeout=10 +short myip.opendns.com @resolver$i.opendns.com;done | sort -n | uniq
+## 3. 预先设置N条规则 
+如果你的局域网能一次能获得N个出口ip，请预先给每个需要修改的安全组提前创建N条任意规则,第N+1条之后规则不会被修改
+
 # 构建二进制文件
 ```
 编译成Linux客户端
