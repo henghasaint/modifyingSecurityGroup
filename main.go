@@ -102,6 +102,7 @@ func getResolverIPs() ([]string, error) {
 		for _, ip := range tempIPs {
 			parsedIP := net.ParseIP(ip)
 			if parsedIP.To4() != nil { // 检查是否为IPv4地址
+				fmt.Printf("ip: %s\n", ip)
 				ips = append(ips, ip)
 			}
 		}
