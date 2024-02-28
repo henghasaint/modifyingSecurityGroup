@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 	"time"
 
@@ -82,32 +83,32 @@ func getResolverIPs() ([]string, error) {
 	// 构建并执行shell命令
 	// cmd := "for i in {1..4};do dig +timeout=5 +short myip.opendns.com @resolver$i.opendns.com;done | sort -n | uniq"
 	cmd := "for i in {1..4};do dig -4 TXT +short o-o.myaddr.l.google.com @ns$i.google.com;done | sort -n | uniq"
-	execCmd := exec.Command("bash", "-c", cmd) // 使用bash执行命令
+	execCmd := exec.Command("bash", "-c", cmd)
 
 	var out bytes.Buffer
-	execCmd.Stdout = &out // 将命令的标准输出连接到out变量
+	execCmd.Stdout = &out
 
-	// 运行命令
 	err := execCmd.Run()
 	if err != nil {
-		return nil, err // 如果命令执行失败，返回错误
+		return nil, err
 	}
 
-	// 处理命令输出
-	output := strings.TrimSpace(out.String()) // 去除输出字符串的首尾空白字符
-	fmt.Printf(currentDateTime(), " output: %s\n", output)
+	output := strings.TrimSpace(out.String())
+	fmt.Printf("%s output: %s\n", currentDateTime(), output)
 	if output != "" {
-		tempIPs := strings.Split(output, "\n") // 按换行符分割输出字符串
-		fmt.Printf(currentDateTime(), " tempIPs: %s\n", tempIPs)
-		for _, ip := range tempIPs {
-			parsedIP := net.ParseIP(ip)
-			if parsedIP.To4() != nil { // 检查是否为IPv4地址
-				fmt.Printf("ip: %s\n", ip)
-				ips = append(ips, ip)
+		// 使用正则表达式从TXT记录中提取IP地址
+		re := regexp.MustCompile(`"(.+?)"`)
+		matches := re.FindAllStringSubmatch(output, -1)
+		for _, match := range matches {
+			if len(match) > 1 {
+				ip := match[1]
+				if net.ParseIP(ip) != nil {
+					ips = append(ips, ip)
+				}
 			}
 		}
 	}
-	fmt.Println(currentDateTime(), " 最新获得的ip:", ips)
+	fmt.Printf("%s 最新获得的ip: %v\n", currentDateTime(), ips)
 	return ips, nil
 }
 
