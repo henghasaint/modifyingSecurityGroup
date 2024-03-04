@@ -10,8 +10,9 @@ sudo yum install bind-util
 ```
 ## 2. 获得你当前局域网的出口ip
 for i in {1..4};do dig +timeout=10 +short myip.opendns.com @resolver$i.opendns.com;done | sort -n | uniq
-## 3. 预先设置N条规则 
-如果你的局域网能一次能获得N个出口ip，请预先给每个需要修改的安全组提前创建N条任意规则,第N+1条之后规则不会被修改
+
+## 3. 预先设置N条规则 **非常重要！！！**
+如果你的局域网能一次能获得N个出口ip，***为防止安全组中的前N条规则会被覆盖，请预先给每个需要修改的安全组提前创建N条任意规则,***
 
 # 构建二进制文件
 ```
@@ -24,9 +25,9 @@ CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -a -o modifyingSecurityGroup.ex
 编译成Mac客户端 (暂时不支持)
 CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -a -o modifyingSecurityGroup_mac main.go
 ```
-复制config.toml和modifyingSecurityGroup_linux到Linux服务器上，在config.toml中配置适当的认证信息和安全组
 
 # 创建cron任务
+复制config.toml和modifyingSecurityGroup_linux到Linux服务器上，在config.toml中配置适当的认证信息和安全组
 ```
 crontab -e ，然后添加以下内容
 #调腾讯云安全组接口，公司ip变化加入白名单，每1小时执行一次
