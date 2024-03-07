@@ -2,13 +2,13 @@
 [dingtalk]
 webhook = "https://oapi.dingtalk.com/robot/send?access_token=babea8b7dc7aec71d37f00cc91f8340971fdb3095fe1dfcf46bf329e50410a79"
 
-# Creds 配置 
+# Creds 配置
 # 腾讯云-理想动力帐号
 [[creds]]
 SecretID = "AKIDTmtgHfMtEKNDqGzWoshGhXF3ey3uycnn"
 SecretKey = "oQp0xd7e2GFzWqvpXZP3Sda1FG4dvy5x"
 Region = "ap-guangzhou"
-SecurityGroups = ["sg-7hiqraf9","sg-1jgjrczl"]
+SecurityGroups = ["sg-7hiqraf9","sg-1jgjrczl","sg-od182r51", "sg-lmsfbwsn"]
 
 # 腾讯云-知买帐号
 [[creds]]
@@ -29,7 +29,23 @@ description = "创益办公室ip"
 # 502auto白名单
 [[securityGroups]]
 id = "sg-1jgjrczl"
-ports = "3306,3389,80,443,8123,8124,63500"
+ports = "3306,3389,80,443,8123,8124,63500,6379"
+protocol = "TCP"
+action = "ACCEPT"
+description = "创益办公室ip"
+
+# tst-zhimai-nacos
+[[securityGroups]]
+id = "sg-od182r51"
+ports = "22,8848"
+protocol = "TCP"
+action = "ACCEPT"
+description = "创益办公室ip"
+
+# tst-zhimai-mq
+[[securityGroups]]
+id = "sg-lmsfbwsn"
+ports = "15672"
 protocol = "TCP"
 action = "ACCEPT"
 description = "创益办公室ip"
@@ -45,7 +61,7 @@ description = "创益办公室ip"
 # 502数据库白名单专用
 [[securityGroups]]
 id = "sg-ehinr8bl"
-ports = "3306,27017,6379,37017,47017,8123,9123,9124,9000,8000"
+ports = "3306,27017,6379,37017,47017,8123,9123,9124,9000,8000,9200"
 protocol = "TCP"
 action = "ACCEPT"
 description = "创益办公室ip"

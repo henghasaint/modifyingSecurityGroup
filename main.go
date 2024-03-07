@@ -42,6 +42,12 @@ type DingTalkMessage struct {
 	} `json:"text"`
 }
 
+// 用于存储成功更新信息的结构
+type updateInfo struct {
+	SG  string   //安全组id
+	IPs []string //更新的ip
+}
+
 func currentDateTime() string {
 	return time.Now().Format("2006-01-02 15:04:05")
 }
@@ -56,24 +62,30 @@ func initConfig() {
 	}
 }
 
-func sendDingTalkMessage(newIP string, sg string) {
+func sendDingTalkMessage(updates []updateInfo) {
 	webhook := viper.GetString("dingtalk.webhook")
+	var content strings.Builder
+
+	content.WriteString("IP变化汇总:\n")
+	for _, u := range updates {
+		content.WriteString(fmt.Sprintf("- 安全组%s更新了IP: %s\n", u.SG, strings.Join(u.IPs, ", ")))
+	}
+
 	message := DingTalkMessage{
 		Msgtype: "text",
 		Text: struct {
 			Content string `json:"content"`
 		}{
-			// 在这里添加关键词“IP变化”
-			Content: fmt.Sprintf("IP变化 -新IP地址%s已添加到安全组%s.\n", newIP, sg),
+			Content: content.String(),
 		},
 	}
 
 	messageBytes, _ := json.Marshal(message)
 	_, err := http.Post(webhook, "application/json", bytes.NewBuffer(messageBytes))
 	if err != nil {
-		fmt.Printf(currentDateTime(), " 发送钉钉消息失败: %v\n", err)
+		fmt.Printf("%s 发送钉钉消息失败: %v\n", currentDateTime(), err)
 	} else {
-		fmt.Printf(currentDateTime(), " 发送钉钉消息成功\n")
+		fmt.Printf("%s 发送钉钉消息成功\n", currentDateTime())
 	}
 }
 
@@ -185,8 +197,8 @@ func update_security_group_policy(creds Creds, sg SecurityGroup, ip string, poli
 
 	request := vpc.NewReplaceSecurityGroupPolicyRequest()
 	request.SecurityGroupId = common.StringPtr(sg.SgID)
-	fmt.Printf(currentDateTime(), " version is :  %v\n", version)
-	fmt.Printf(currentDateTime(), " policyIndex is :  %v\n", policyIndex)
+	fmt.Printf(currentDateTime(), "---> version is : %s, ", *version)
+	fmt.Printf(", policyIndex is :  %d\n", policyIndex)
 	request.SecurityGroupPolicySet = &vpc.SecurityGroupPolicySet{
 		Version: version,
 		Ingress: []*vpc.SecurityGroupPolicy{
@@ -219,13 +231,13 @@ func update_security_group_policy(creds Creds, sg SecurityGroup, ip string, poli
 		panic(err)
 	}
 	// 输出json格式的字符串回包
-	fmt.Printf(currentDateTime(), " response: %s\n", response.ToJsonString())
+	// fmt.Printf(currentDateTime(), " response: %s\n", response.ToJsonString())
 	return nil
 }
 
 func main() {
 	initConfig()
-
+	var updates []updateInfo
 	var credsConfig []Creds
 	err := viper.UnmarshalKey("creds", &credsConfig)
 	if err != nil {
@@ -253,6 +265,9 @@ func main() {
 					break
 				}
 			}
+			var sgUpdate updateInfo
+			sgUpdate.SG = sg.SgID
+
 			policyIndex := int64(0) // 初始化PolicyIndex
 			for single_ip := range uniqueIPs {
 				if _, exists := existingIPs[single_ip]; !exists {
@@ -263,14 +278,20 @@ func main() {
 						continue
 
 					}
-					fmt.Printf(currentDateTime(), " ip-: %s in sg-: %s\n", single_ip, sgID)
-					sendDingTalkMessage(single_ip, sgID) // 发送新增的IP到钉钉
-					policyIndex++                        // 每成功更新一个IP，PolicyIndex加1
+					sgUpdate.IPs = append(sgUpdate.IPs, single_ip)
+					policyIndex++ // 每成功更新一个IP，PolicyIndex加1
 				} else {
 					fmt.Printf(currentDateTime(), " 出口IP地址无变化，暂时不需要更新安全组中的规则\n")
 				}
 			}
+			if len(sgUpdate.IPs) > 0 {
+				updates = append(updates, sgUpdate)
+			}
 		}
 	}
 	readWriteIPs("ips.txt", uniqueIPs, "w") //不论ip是否有变化，都重新写入一次
+	// 使用收集到的更新信息发送汇总消息到钉钉
+	if len(updates) > 0 {
+		sendDingTalkMessage(updates)
+	}
 }
