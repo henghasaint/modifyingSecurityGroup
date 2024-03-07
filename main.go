@@ -231,7 +231,7 @@ func update_security_group_policy(creds Creds, sg SecurityGroup, ip string, poli
 		panic(err)
 	}
 	// 输出json格式的字符串回包
-	// fmt.Printf(currentDateTime(), " response: %s\n", response.ToJsonString())
+	fmt.Printf(currentDateTime(), " response: %s\n", response.ToJsonString())
 	return nil
 }
 
