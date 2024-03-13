@@ -2,6 +2,12 @@ Host github.com:henghasaint/ahcyfc.git
         Hostname github.com
         IdentityFile=/home/ubuntu/.ssh/id_github_henghasaint
 
+Host github.com:henghasaint/modifyingSecurityGroup.git
+        Hostname github.com
+        IdentityFile=/home/ubuntu/.ssh/id_github_henghasaint
+git@github.com:henghasaint/modifyingSecurityGroup.git
+
+
 Host github.com
   ForwardAgent yes
   AddKeysToAgent yes
