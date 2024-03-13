@@ -1,1 +1,9 @@
+Host github.com:henghasaint/ahcyfc.git
+        Hostname github.com
+        IdentityFile=/home/ubuntu/.ssh/id_github_henghasaint
 
+Host github.com
+  ForwardAgent yes
+  AddKeysToAgent yes
+  UseKeychain yes
+  IdentityFile /home/ubuntu/.ssh/id_github_henghasaint

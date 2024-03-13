@@ -62,6 +62,8 @@ func initConfig() {
 	}
 }
 
+// 使用快速排序对数组进行排序
+
 func sendDingTalkMessage(updates []updateInfo) {
 	webhook := viper.GetString("dingtalk.webhook")
 	var content strings.Builder
