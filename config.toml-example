@@ -1,0 +1,34 @@
+# 在config.toml中添加钉钉Webhook配置
+[dingtalk]
+webhook = "你的钉钉机器人Webhook URL"
+
+# Creds 配置
+[[creds]]
+id = "myidddddks1"
+key = "myskeyyyyyy1"
+region = "ap-guangzhou"
+securityGroups = ["sg-32n8c2sp1", "sg-32n8c2sp2", "sg-32n8c2sp3"]
+
+[[creds]]
+id = "myidddddks2"
+key = "myskeyyyyyy2"
+region = "ap-guangzhou"
+securityGroups = ["sg-32n8c2sp4", "sg-32n8c2sp5", "sg-32n8c2sp6"]
+
+[[creds]]
+id = "myidddddks3"
+key = "myskeyyyyyy3"
+region = "ap-guangzhou"
+securityGroups = ["sg-32n8c2sp7", "sg-32n8c2sp8", "sg-32n8c2sp9"]
+
+# SecurityGroups 配置
+[[securityGroups]]
+id = "sg-32n8c2sp1"
+ports = "22,3306,80,443,8848"
+protocol = "TCP"
+action = "ACCEPT"
+description = "创益办公室ip1"
+
+[[securityGroups]]
+id = "sg-32n8c2sp2"
+# 更多 securityGroups 配置...
