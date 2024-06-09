@@ -1,0 +1,48 @@
+# 在config.toml中添加钉钉Webhook配置
+[dingtalk]
+webhook = "https://oapi.dingtalk.com/robot/send?access_token=babea8b7dc7aec71d37f00cc91f8340971fdb3095fe1dfcf46bf329e50410a79"
+
+# Creds 配置 
+# 腾讯云-理想动力帐号
+[[creds]]
+SecretID = "AKIDTmtgHfMtEKNDqGzWoshGhXF3ey3uycnn"
+SecretKey = "oQp0xd7e2GFzWqvpXZP3Sda1FG4dvy5x"
+Region = "ap-guangzhou"
+SecurityGroups = ["sg-32n8c2sp","sg-ky3hpybt"]
+
+# 腾讯云-知买帐号
+[[creds]]
+SecretID = "AKIDDH5duud6JFtGNDm58vRP7cqnTs0rRknZ"
+SecretKey = "WlkSs2wZv0oMcbJkuoRntiHZbMp20h6E"
+Region = "ap-guangzhou"
+SecurityGroups = ["sg-ciqmno4n", "sg-q0gdb3k3"]
+
+# SecurityGroups 配置
+[[securityGroups]]
+id = "sg-32n8c2sp"
+ports = "22,3306,80,443,8848"
+protocol = "TCP"
+action = "ACCEPT"
+description = "创益办公室ip"
+
+[[securityGroups]]
+id = "sg-ky3hpybt"
+ports = "22,3306,80,443,8848"
+protocol = "TCP"
+action = "ACCEPT"
+description = "创益办公室ip"
+
+[[securityGroups]]
+id = "sg-ciqmno4n"
+ports = "80,443,22,8848,9848,3389,8443,7918,7474,7687"
+protocol = "TCP"
+action = "ACCEPT"
+description = "创益办公室ip1"
+
+[[securityGroups]]
+id = "sg-q0gdb3k3"
+ports = "80,443,22,8848,9848,3389,8443,7918,7474,7687"
+protocol = "TCP"
+action = "ACCEPT"
+description = "创益办公室ip1"
+
