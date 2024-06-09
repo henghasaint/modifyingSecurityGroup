@@ -4,15 +4,18 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"flag"
 	"fmt"
-	"net"
+	"io"
+	"math/rand"
 	"net/http"
 	"os"
-	"os/exec"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/spf13/viper"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors"
@@ -89,47 +92,116 @@ func sendDingTalkMessage(updates []updateInfo) {
 	}
 }
 
-func getResolverIPs() ([]string, error) {
-	// ips := []string{"121.35.46.172", "121.35.44.242", "121.35.46.168"}
-	var ips []string
-	// 构建并执行shell命令
-	// cmd := "for i in {1..4};do dig +timeout=5 +short myip.opendns.com @resolver$i.opendns.com;done | sort -n | uniq"
-	cmd := "for i in {1..4};do dig -4 TXT +short o-o.myaddr.l.google.com @ns$i.google.com;done | sort -n | uniq"
-	execCmd := exec.Command("bash", "-c", cmd)
-
-	var out bytes.Buffer
-	execCmd.Stdout = &out
-
-	err := execCmd.Run()
+func getIframeURL(client *http.Client) (string, error) {
+	resp, err := client.Get("http://nstool.netease.com")
 	if err != nil {
-		return nil, err
+		return "", fmt.Errorf("无法连接到 http://nstool.netease.com: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("无法连接到 http://nstool.netease.com: %v", resp.Status)
 	}
 
-	output := strings.TrimSpace(out.String())
-	fmt.Printf("%s output: %s\n", currentDateTime(), output)
-	if output != "" {
-		// 使用正则表达式从TXT记录中提取IP地址
-		re := regexp.MustCompile(`"(.+?)"`)
-		matches := re.FindAllStringSubmatch(output, -1)
-		for _, match := range matches {
-			if len(match) > 1 {
-				ip := match[1]
-				if net.ParseIP(ip) != nil {
-					ips = append(ips, ip)
-				}
-			}
+	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("读取响应失败: %v", err)
+	}
+
+	iframe := doc.Find("iframe").First()
+	if iframe.Length() > 0 {
+		iframeURL, exists := iframe.Attr("src")
+		if exists {
+			return iframeURL, nil
 		}
 	}
-	fmt.Printf("%s 最新获得的ip: %v\n", currentDateTime(), ips)
-	return ips, nil
+
+	return "", fmt.Errorf("未找到 iframe 标签")
+}
+
+func getIPFromURL(client *http.Client, url string) ([]string, error) {
+	resp, err := client.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("无法连接到 %s: %v", url, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("无法连接到 %s: %v", url, resp.Status)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("读取响应失败: %v", err)
+	}
+
+	re := regexp.MustCompile(`\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b`)
+	content := string(body)
+	ipAddresses := re.FindAllString(content, -1)
+
+	// 排除包含 "DNS" 后面的内容
+	dnsIndex := len(content)
+	if dnsPos := regexp.MustCompile(`DNS`).FindStringIndex(content); dnsPos != nil {
+		dnsIndex = dnsPos[0]
+	}
+	ipAddresses = re.FindAllString(content[:dnsIndex], -1)
+
+	return ipAddresses, nil
 }
 
 func getUniqueIPs() map[string]bool {
-	ips, _ := getResolverIPs()
+	const maxAttempts = 35
+	const requiredIPs = 3
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+
+	client := &http.Client{}
+	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 	uniqueIPs := make(map[string]bool)
-	for _, ip := range ips { //去重
-		uniqueIPs[ip] = true
+	ch := make(chan struct{}, maxAttempts)
+
+	for len(uniqueIPs) < requiredIPs {
+		for i := 0; i < maxAttempts; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				ch <- struct{}{}
+				defer func() { <-ch }()
+
+				pause := time.Duration(rnd.Intn(11)+5) * time.Second
+				time.Sleep(pause)
+
+				iframeURL, err := getIframeURL(client)
+				if err != nil {
+					fmt.Println(err)
+					return
+				}
+				fmt.Printf("提取到的 iframe 链接：%s\n", iframeURL)
+
+				ipAddresses, err := getIPFromURL(client, iframeURL)
+				if err != nil {
+					fmt.Println(err)
+					return
+				}
+
+				mu.Lock()
+				for _, ip := range ipAddresses {
+					if len(uniqueIPs) >= requiredIPs {
+						mu.Unlock()
+						return
+					}
+					if _, exists := uniqueIPs[ip]; !exists {
+						uniqueIPs[ip] = true
+						fmt.Printf("找到IP: %s\n", ip) // 添加调试日志，打印找到的IP
+					}
+				}
+				mu.Unlock()
+			}()
+		}
+		wg.Wait()
 	}
+
+	fmt.Printf("最终找到的Unique IPs: %v\n", uniqueIPs) // 打印最终找到的Unique IPs
 	return uniqueIPs
 }
 
@@ -137,6 +209,7 @@ func readWriteIPs(filePath string, ips map[string]bool, mode string) map[string]
 	if mode == "r" {
 		file, err := os.Open(filePath)
 		if err != nil {
+			fmt.Println(currentDateTime(), " Error opening file:", err)
 			return make(map[string]bool)
 		}
 		defer file.Close()
@@ -144,19 +217,31 @@ func readWriteIPs(filePath string, ips map[string]bool, mode string) map[string]
 		scanner := bufio.NewScanner(file)
 		result := make(map[string]bool)
 		for scanner.Scan() {
-			result[scanner.Text()] = true
+			ip := strings.TrimSpace(scanner.Text()) // 去除每行的前后空格
+			if ip != "" {
+				result[ip] = true
+				fmt.Printf("读取到IP: '%s'\n", ip) // 添加调试日志，打印读取到的IP
+			}
 		}
+		if err := scanner.Err(); err != nil {
+			fmt.Println(currentDateTime(), " Error reading file:", err)
+		}
+		fmt.Printf("最终读取到的Existing IPs: %v\n", result) // 打印最终读取到的IPs
 		return result
 	} else if mode == "w" {
 		file, err := os.Create(filePath)
 		if err != nil {
-			fmt.Println(currentDateTime(), " sError creating file:", err)
+			fmt.Println(currentDateTime(), " Error creating file:", err)
 			return nil
 		}
 		defer file.Close()
 
 		for ip := range ips {
-			file.WriteString(ip + "\n")
+			_, err := file.WriteString(ip + "\n")
+			if err != nil {
+				fmt.Println(currentDateTime(), " Error writing to file:", err)
+			}
+			fmt.Printf("写入IP: '%s'\n", ip) // 添加调试日志，打印写入的IP
 		}
 	}
 	return nil
@@ -197,8 +282,7 @@ func update_security_group_policy(creds Creds, sg SecurityGroup, ip string, poli
 
 	request := vpc.NewReplaceSecurityGroupPolicyRequest()
 	request.SecurityGroupId = common.StringPtr(sg.SgID)
-	fmt.Printf(currentDateTime(), "---> version is : %s, ", *version)
-	fmt.Printf(", policyIndex is :  %d\n", policyIndex)
+	fmt.Printf("%s ---> version is : %s, policyIndex is : %d\n", currentDateTime(), *version, policyIndex)
 	request.SecurityGroupPolicySet = &vpc.SecurityGroupPolicySet{
 		Version: version,
 		Ingress: []*vpc.SecurityGroupPolicy{
@@ -220,23 +304,32 @@ func update_security_group_policy(creds Creds, sg SecurityGroup, ip string, poli
 			},
 		},
 	}
-
 	// 返回的resp是一个ReplaceSecurityGroupPolicyResponse的实例，与请求对象对应
 	response, err := client.ReplaceSecurityGroupPolicy(request)
 	if _, ok := err.(*errors.TencentCloudSDKError); ok {
-		fmt.Printf(currentDateTime(), " An API error has returned: %s\n", err)
+		fmt.Printf("%s An API error has returned: %s\n", currentDateTime(), err)
 		return err
 	}
 	if err != nil {
 		panic(err)
 	}
 	// 输出json格式的字符串回包
-	fmt.Printf(currentDateTime(), " response: %s\n", response.ToJsonString())
+	fmt.Printf("%s response: %s\n", currentDateTime(), response.ToJsonString())
 	return nil
 }
 
+var (
+	ipFilePath string // 新增变量用于存储命令行参数
+)
+
+func init() {
+	flag.StringVar(&ipFilePath, "ip", "", "Path to the file containing IP addresses")
+	initConfig() // 初始化配置，保持在init函数中以保证首先执行
+}
+
 func main() {
-	initConfig()
+	flag.Parse() // 解析命令行参数
+
 	var updates []updateInfo
 	var credsConfig []Creds
 	err := viper.UnmarshalKey("creds", &credsConfig)
@@ -252,8 +345,16 @@ func main() {
 		return
 	}
 
-	uniqueIPs := getUniqueIPs()
+	var uniqueIPs map[string]bool
+	if ipFilePath != "" {
+		uniqueIPs = readWriteIPs(ipFilePath, nil, "r") // 当提供-ip参数时，从文件读取IPs
+	} else {
+		uniqueIPs = getUniqueIPs()
+		fmt.Printf("获取到的Unique IPs: %v\n", uniqueIPs)
+	}
+
 	existingIPs := readWriteIPs("./ips.txt", nil, "r") //从ips.txt中读取ip
+	fmt.Printf("从ips.txt读取的Existing IPs: %v\n", existingIPs)
 
 	for _, cred := range credsConfig {
 		for _, sgID := range cred.SecurityGroups {
@@ -271,17 +372,20 @@ func main() {
 			policyIndex := int64(0) // 初始化PolicyIndex
 			for single_ip := range uniqueIPs {
 				if _, exists := existingIPs[single_ip]; !exists {
-					// 对每个新IP和每个安全组执行更新操作
+					// 调试日志：IP 不存在时进行更新
+					fmt.Printf("Updating Security Group %s with IP %s\n", sg.SgID, single_ip)
+
 					err := update_security_group_policy(cred, sg, single_ip, policyIndex) // 注意：policyIndex如何处理取决于业务逻辑
 					if err != nil {
-						fmt.Printf(currentDateTime(), " Error updating security group %s policy: %v\n", sgID, err)
+						fmt.Printf("%s Error updating security group %s policy: %v\n", currentDateTime(), sgID, err)
 						continue
-
+					} else {
+						fmt.Printf("%s 安全组 %s 中的规则已成功更新ip %s \n", currentDateTime(), sgID, single_ip)
 					}
 					sgUpdate.IPs = append(sgUpdate.IPs, single_ip)
 					policyIndex++ // 每成功更新一个IP，PolicyIndex加1
 				} else {
-					fmt.Printf(currentDateTime(), " 出口IP地址无变化，暂时不需要更新安全组中的规则\n")
+					fmt.Printf("%s IP %s 在上次已经更新过，跳过本次更新\n", currentDateTime(), single_ip)
 				}
 			}
 			if len(sgUpdate.IPs) > 0 {
@@ -289,7 +393,10 @@ func main() {
 			}
 		}
 	}
-	readWriteIPs("ips.txt", uniqueIPs, "w") //不论ip是否有变化，都重新写入一次
+
+	readWriteIPs("ips.txt", uniqueIPs, "w")        // 不论ip是否有变化，都重新写入一次
+	fmt.Printf("最终写入的Unique IPs: %v\n", uniqueIPs) // 打印最终写入的IPs
+
 	// 使用收集到的更新信息发送汇总消息到钉钉
 	if len(updates) > 0 {
 		sendDingTalkMessage(updates)
