@@ -149,9 +149,7 @@ func getIPFromURL(client *http.Client, url string) ([]string, error) {
 	return ipAddresses, nil
 }
 
-func getUniqueIPs() map[string]bool {
-	const maxAttempts = 35
-	const requiredIPs = 3
+func getUniqueIPs(maxAttempts int, requiredIPs int) map[string]bool {
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
@@ -319,11 +317,15 @@ func update_security_group_policy(creds Creds, sg SecurityGroup, ip string, poli
 }
 
 var (
-	ipFilePath string // 新增变量用于存储命令行参数
+	ipFilePath  string // 新增变量用于存储命令行参数
+	maxAttempts int    // 新增变量用于存储最大尝试次数
+	requiredIPs int    // 新增变量用于存储所需的唯一IP数量
 )
 
 func init() {
 	flag.StringVar(&ipFilePath, "ip", "", "Path to the file containing IP addresses")
+	flag.IntVar(&maxAttempts, "maxAttempts", 35, "Maximum number of attempts")
+	flag.IntVar(&requiredIPs, "requiredIPs", 3, "Number of required unique IPs")
 	initConfig() // 初始化配置，保持在init函数中以保证首先执行
 }
 
@@ -349,7 +351,7 @@ func main() {
 	if ipFilePath != "" {
 		uniqueIPs = readWriteIPs(ipFilePath, nil, "r") // 当提供-ip参数时，从文件读取IPs
 	} else {
-		uniqueIPs = getUniqueIPs()
+		uniqueIPs = getUniqueIPs(maxAttempts, requiredIPs)
 		fmt.Printf("获取到的Unique IPs: %v\n", uniqueIPs)
 	}
 
@@ -363,7 +365,7 @@ func main() {
 			for _, s := range sgConfig {
 				if s.SgID == sgID {
 					sg = s
-					break
+					break休息
 				}
 			}
 			var sgUpdate updateInfo
@@ -374,7 +376,7 @@ func main() {
 				if _, exists := existingIPs[single_ip]; !exists {
 					// 调试日志：IP 不存在时进行更新
 					fmt.Printf("Updating Security Group %s with IP %s\n", sg.SgID, single_ip)
-
+					fmt.Printf("正在循环中...从ips.txt读取的Existing IPs: %v\n", existingIPs)
 					err := update_security_group_policy(cred, sg, single_ip, policyIndex) // 注意：policyIndex如何处理取决于业务逻辑
 					if err != nil {
 						fmt.Printf("%s Error updating security group %s policy: %v\n", currentDateTime(), sgID, err)
