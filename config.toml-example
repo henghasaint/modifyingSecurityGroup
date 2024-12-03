@@ -1,34 +1,67 @@
 # 在config.toml中添加钉钉Webhook配置
 [dingtalk]
-webhook = "你的钉钉机器人Webhook URL"
+webhook = "https://oapi.dingtalk.com/robot/send?access_token=babeaddddddddddddddddsec71111111111111111146bf3cccccc"
 
 # Creds 配置
+# 腾讯云-理想动力帐号
 [[creds]]
-id = "myidddddks1"
-key = "myskeyyyyyy1"
-region = "ap-guangzhou"
-securityGroups = ["sg-32n8c2sp1", "sg-32n8c2sp2", "sg-32n8c2sp3"]
+SecretID = "AKIDdddddddddddddddmuARVM0Vo04EWaaaaaaaaayD"
+SecretKey = "1ssssssssssssssKKKKKKKKKKKKKKKKKK"
+Region = "ap-guangzhou"
+SecurityGroups = ["sg-8dlkjweaf9","sg-2jlkelwkekl","sg-1d133r61", "sg-lmsfbwsn"]
 
+# 腾讯云-知买帐号
 [[creds]]
-id = "myidddddks2"
-key = "myskeyyyyyy2"
-region = "ap-guangzhou"
-securityGroups = ["sg-32n8c2sp4", "sg-32n8c2sp5", "sg-32n8c2sp6"]
-
-[[creds]]
-id = "myidddddks3"
-key = "myskeyyyyyy3"
-region = "ap-guangzhou"
-securityGroups = ["sg-32n8c2sp7", "sg-32n8c2sp8", "sg-32n8c2sp9"]
+SecretID = "AKIDssssssmuARVM0Vo04EWXXXXXXyD"
+SecretKey = "1111elkleleeeeeeeeeeeee"
+Region = "ap-guangzhou"
+SecurityGroups = ["sg-dqvzs1xn","sg-ehinr8bl"]
 
 # SecurityGroups 配置
+# 501auto白名单
 [[securityGroups]]
-id = "sg-32n8c2sp1"
+id = "sg-8dlkjweaf9"
 ports = "22,3306,80,443,8848"
 protocol = "TCP"
 action = "ACCEPT"
-description = "创益办公室ip1"
+description = "覆盖安全组中的前三条规则，创益办公室ip"
 
+# 502auto白名单
 [[securityGroups]]
-id = "sg-32n8c2sp2"
-# 更多 securityGroups 配置...
+id = "sg-2jlkelwkekl"
+ports = "ALL"
+protocol = "TCP"
+action = "ACCEPT"
+description = "覆盖安全组中的前三条规则，创益办公室ip"
+
+# tst-zhimai-nacos
+[[securityGroups]]
+id = "sg-1d133r61"
+ports = "22,9848,8848,8849,8850"
+protocol = "TCP"
+action = "ACCEPT"
+description = "覆盖安全组中的前三条规则，创益办公室ip"
+
+# tst-zhimai-mq
+[[securityGroups]]
+id = "sg-lmsfbwsn"
+ports = "15672"
+protocol = "TCP"
+action = "ACCEPT"
+description = "覆盖安全组中的前三条规则，创益办公室ip"
+
+# 502web&gitlab白名单专用
+[[securityGroups]]
+id = "sg-dqvzs1xn"
+ports = "80,443,22,8848,8849,8850,9848,3389,8443,7918,7474,7687,15672"
+protocol = "TCP"
+action = "ACCEPT"
+description = "覆盖安全组中的前三条规则，创益办公室ip"
+
+# 502数据库白名单专用
+[[securityGroups]]
+id = "sg-ehinr8bl"
+ports = "3306,27017,6379,37017,47017,8123,9123,9124,9000,8000,9200"
+protocol = "TCP"
+action = "ACCEPT"
+description = "覆盖安全组中的前三条规则，创益办公室ip"
