@@ -26,12 +26,12 @@ import (
 type Creds struct {
 	SecretID       string
 	SecretKey      string
-	Region         string
 	SecurityGroups []string // 添加这个字段来存储安全组ID
 }
 
 type SecurityGroup struct {
 	SgID        string `mapstructure:"id"` // 确保标签正确映射了TOML文件中的键
+	Region      string
 	Ports       string
 	Protocol    string
 	Action      string
@@ -245,14 +245,10 @@ func readWriteIPs(filePath string, ips map[string]bool, mode string) map[string]
 	return nil
 }
 
-func geSG_version(sgID string, creds Creds) (*string, error) {
-	credential := common.NewCredential(
-		creds.SecretID,
-		creds.SecretKey,
-	)
+func geSG_version(sgID string, region string, credential *common.Credential) (*string, error) {
 	cpf := profile.NewClientProfile()
 	cpf.HttpProfile.Endpoint = "vpc.tencentcloudapi.com"
-	client, _ := vpc.NewClient(credential, creds.Region, cpf)
+	client, _ := vpc.NewClient(credential, region, cpf)
 	request := vpc.NewDescribeSecurityGroupPoliciesRequest()
 	request.SecurityGroupId = common.StringPtr(sgID)
 
@@ -271,9 +267,9 @@ func update_security_group_policy(creds Creds, sg SecurityGroup, ip string, poli
 	)
 	cpf := profile.NewClientProfile()
 	cpf.HttpProfile.Endpoint = "vpc.tencentcloudapi.com"
-	client, _ := vpc.NewClient(credential, creds.Region, cpf)
+	client, _ := vpc.NewClient(credential, sg.Region, cpf)
 
-	version, err := geSG_version(sg.SgID, creds)
+	version, err := geSG_version(sg.SgID, sg.Region, credential)
 	if err != nil {
 		return err
 	}
@@ -365,7 +361,7 @@ func main() {
 			for _, s := range sgConfig {
 				if s.SgID == sgID {
 					sg = s
-					break休息
+					break
 				}
 			}
 			var sgUpdate updateInfo

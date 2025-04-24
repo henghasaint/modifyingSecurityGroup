@@ -7,20 +7,19 @@ webhook = "https://oapi.dingtalk.com/robot/send?access_token=babeadddddddddddddd
 [[creds]]
 SecretID = "AKIDdddddddddddddddmuARVM0Vo04EWaaaaaaaaayD"
 SecretKey = "1ssssssssssssssKKKKKKKKKKKKKKKKKK"
-Region = "ap-guangzhou"
 SecurityGroups = ["sg-8dlkjweaf9","sg-2jlkelwkekl","sg-1d133r61", "sg-lmsfbwsn"]
 
 # 腾讯云-知买帐号
 [[creds]]
 SecretID = "AKIDssssssmuARVM0Vo04EWXXXXXXyD"
 SecretKey = "1111elkleleeeeeeeeeeeee"
-Region = "ap-guangzhou"
 SecurityGroups = ["sg-dqvzs1xn","sg-ehinr8bl"]
 
 # SecurityGroups 配置
 # 501auto白名单
 [[securityGroups]]
 id = "sg-8dlkjweaf9"
+region = "ap-guangzhou"
 ports = "22,3306,80,443,8848"
 protocol = "TCP"
 action = "ACCEPT"
@@ -29,6 +28,7 @@ description = "覆盖安全组中的前三条规则，创益办公室ip"
 # 502auto白名单
 [[securityGroups]]
 id = "sg-2jlkelwkekl"
+region = "ap-guangzhou"
 ports = "ALL"
 protocol = "TCP"
 action = "ACCEPT"
@@ -37,6 +37,7 @@ description = "覆盖安全组中的前三条规则，创益办公室ip"
 # tst-zhimai-nacos
 [[securityGroups]]
 id = "sg-1d133r61"
+region = "ap-guangzhou"
 ports = "22,9848,8848,8849,8850"
 protocol = "TCP"
 action = "ACCEPT"
@@ -45,6 +46,7 @@ description = "覆盖安全组中的前三条规则，创益办公室ip"
 # tst-zhimai-mq
 [[securityGroups]]
 id = "sg-lmsfbwsn"
+region = "ap-guangzhou"
 ports = "15672"
 protocol = "TCP"
 action = "ACCEPT"
@@ -53,6 +55,7 @@ description = "覆盖安全组中的前三条规则，创益办公室ip"
 # 502web&gitlab白名单专用
 [[securityGroups]]
 id = "sg-dqvzs1xn"
+region = "ap-guangzhou"
 ports = "80,443,22,8848,8849,8850,9848,3389,8443,7918,7474,7687,15672"
 protocol = "TCP"
 action = "ACCEPT"
@@ -61,6 +64,7 @@ description = "覆盖安全组中的前三条规则，创益办公室ip"
 # 502数据库白名单专用
 [[securityGroups]]
 id = "sg-ehinr8bl"
+region = "ap-guangzhou"
 ports = "3306,27017,6379,37017,47017,8123,9123,9124,9000,8000,9200"
 protocol = "TCP"
 action = "ACCEPT"
