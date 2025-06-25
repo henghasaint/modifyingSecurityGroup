@@ -78,8 +78,16 @@ crontab -e ，然后添加以下内容
 
 以管理员权限运行命令提示符，然后执行以下命令
 
+- 创建非高峰时段任务（00:00-08:59，每 2 小时）
+
+```cmd
+schtasks /create /tn "modifyingSecurityGroup_OffPeak" /tr "\"D:\Program Files\modifyingSecurityGroup\modifyingSG.bat\"" /sc DAILY /st 00:00 /ri 120 /du 08:59 /ed 9999/12/31 /ru "SYSTEM" /rl HIGHEST /f
 ```
-schtasks /create /tn "modifyingSecurityGroup" /tr "\"D:\Program Files\modifyingSecurityGroup\modifyingSG.bat\"" /sc DAILY /st 00:00 /ri 2 /du 23:59 /ed 9999/12/31 /ru "SYSTEM" /rl HIGHEST /f
+
+- 创建高峰时段任务（09:00-22:00，每 5 分钟）
+
+```cmd
+schtasks /create /tn "modifyingSecurityGroup_Peak" /tr "\"D:\Program Files\modifyingSecurityGroup\modifyingSG.bat\"" /sc DAILY /st 09:00 /ri 5 /du 13:00 /ed 9999/12/31 /ru "SYSTEM" /rl HIGHEST /f
 ```
 
 ### 参数说明
@@ -87,13 +95,41 @@ schtasks /create /tn "modifyingSecurityGroup" /tr "\"D:\Program Files\modifyingS
 - `/tn` 指定任务名称
 - `/tr` 指定任务执行的程序路径
 - `/sc` 指定任务的触发方式，DAILY：任务每日触发
-- `/st` 指定任务的开始时间，00:00：每日开始时间为00:00
-- `/ri` 指定任务的重复间隔，15：重复间隔15分钟
-- `/du` 指定任务的持续时间，23:59：持续23:59
+- `/st` 指定任务的开始时间，00:00：每日开始时间为 00:00
+- `/ri` 指定任务的重复间隔，10：重复间隔 10 分钟
+- `/du` 指定任务的持续时间，23:59：持续 23:59
 - `/ed` 指定任务的结束时间，9999/12/31：任务永久有效
 - `/ru` 指定任务的运行用户，SYSTEM：以系统用户运行
 - `/rl` 指定任务的运行权限，HIGHEST：最高权限
 - `/f` 强制创建任务
+
+## 查看计划任务
+
+通过 schtasks /query 输出任务列表，并用 findstr 进行模糊匹配：
+
+```cmd
+schtasks /query /fo TABLE | findstr /i "modify"
+```
+
+查看特定计划任务详细信息：
+
+```cmd
+schtasks /query /tn  "modifyingSecurityGroup_OffPeak" /fo LIST /v
+```
+
+```cmd
+schtasks /query /tn  "modifyingSecurityGroup_Peak" /fo LIST /v
+```
+
+## 删除计划任务
+
+```cmd
+schtasks /delete /tn "modifyingSecurityGroup_OffPeak" /f
+```
+
+```cmd
+schtasks /delete /tn "modifyingSecurityGroup_Peak" /f
+```
 
 # 注意
 
