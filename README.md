@@ -53,7 +53,8 @@ CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -a -o modifyingSecurityGroup_mac
 ```
 crontab -e ，然后添加以下内容
 #调腾讯云安全组接口，公司ip变化加入白名单，每1小时执行一次
-* */1 * * * cd /root/modifyingSecurityGroup && ./modifyingSecurityGroup_linux --requiredIPs 2 >> /tmp/txmodSecurityGroup.log 2>&1
+* */1 * * * cd /root/modifyingSecurityGroup && ./modifyingSecurityGroup_linux --minRequiredIPs 2 --maxRequiredIPs 5 >> /tmp/txmodSecurityGroup.log 2>&1
+
 ```
 
 ## 手动指定出口 ip(特殊情况下使用)
@@ -69,8 +70,9 @@ crontab -e ，然后添加以下内容
 ### 参数说明
 
 - --ip：指定包含 IP 地址的文件路径。如果提供此参数，程序将从文件中读取 IP 地址，而不是在线获取。
-- --maxAttempts：最大尝试次数，用于在线获取 IP 地址时的并发请求数。默认值为 35。
-- --requiredIPs：所需的唯一 IP 数量。程序将在获取到指定数量的唯一 IP 后停止。默认值为 3,此参数保持与前面的 N 相等。
+- --maxAttempts：最大尝试次数，用于在线获取 IP 地址时的并发请求数。默认值为 30。
+- --minRequiredIPs：所需的唯一 IP 数量。程序将在获取到指定数量的唯一 IP 后停止。默认值为 2。
+- --maxRequiredIPs：所需的唯一 IP 数量。程序将在获取到指定数量的唯一 IP 后停止。默认值为 5,此参数保持与前面的 N 相等。
 
 # 在 Windows 上运行
 

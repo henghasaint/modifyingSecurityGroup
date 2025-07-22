@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log"
 	"math/rand"
 	"net/http"
 	"os"
@@ -77,12 +78,16 @@ func sendDingTalkMessage(updates []updateInfo) {
 		content.WriteString(fmt.Sprintf("- 安全组%s更新了IP: %s\n", u.SG, strings.Join(u.IPs, ", ")))
 	}
 
+	// 打印要发送的消息内容
+	messageContent := content.String()
+	fmt.Printf("%s 准备发送的钉钉消息内容:\n%s\n", currentDateTime(), messageContent)
+
 	message := DingTalkMessage{
 		Msgtype: "text",
 		Text: struct {
 			Content string `json:"content"`
 		}{
-			Content: content.String(),
+			Content: messageContent,
 		},
 	}
 
@@ -94,7 +99,6 @@ func sendDingTalkMessage(updates []updateInfo) {
 		fmt.Printf("%s 发送钉钉消息成功\n", currentDateTime())
 	}
 }
-
 func getIframeURL(client *http.Client) (string, error) {
 	resp, err := client.Get("http://nstool.netease.com")
 	if err != nil {
@@ -176,7 +180,7 @@ func getIPFromInip(client *http.Client) (string, error) {
 	return ip, nil
 }
 
-func getUniqueIPs(maxAttempts int, requiredIPs int) []string {
+func getUniqueIPs(maxAttempts int, minRequiredIPs int, maxRequiredIPs int) ([]string, error) {
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
@@ -186,90 +190,60 @@ func getUniqueIPs(maxAttempts int, requiredIPs int) []string {
 	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 	uniqueIPs := make(map[string]bool)
 	ch := make(chan struct{}, maxAttempts)
-	gotRequired := false
 
-	for len(uniqueIPs) < requiredIPs {
-		for i := 0; i < maxAttempts; i++ {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				ch <- struct{}{}
-				defer func() { <-ch }()
+	for i := 0; i < maxAttempts; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			ch <- struct{}{}
+			defer func() { <-ch }()
 
-				pause := time.Duration(rnd.Intn(11)+5) * time.Second
-				time.Sleep(pause)
+			pause := time.Duration(rnd.Intn(11)+5) * time.Second
+			time.Sleep(pause)
 
-				mu.Lock()
-				currentCount := len(uniqueIPs)
-				mu.Unlock()
+			iframeURL, err := getIframeURL(client)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
 
-				if currentCount == requiredIPs-1 && !gotRequired {
-					ip, err := getIPFromInip(client)
-					if err != nil {
-						fmt.Printf("从inip.in获取IP失败: %v\n", err)
-						return
-					}
+			ipAddresses, err := getIPFromURL(client, iframeURL)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
 
-					mu.Lock()
-					if len(uniqueIPs) < requiredIPs {
-						uniqueIPs[ip] = true
-						fmt.Printf("从inip.in获取到第%d个IP: %s\n", requiredIPs)
-						gotRequired = true
-					}
+			mu.Lock()
+			for _, ip := range ipAddresses {
+				if len(uniqueIPs) >= maxRequiredIPs {
 					mu.Unlock()
 					return
 				}
-
-				iframeURL, err := getIframeURL(client)
-				if err != nil {
-					fmt.Println(err)
-					return
+				if _, exists := uniqueIPs[ip]; !exists {
+					uniqueIPs[ip] = true
+					fmt.Printf("找到IP: %s\n", ip)
 				}
-				fmt.Printf("提取到的 iframe 链接：%s\n", iframeURL)
-
-				ipAddresses, err := getIPFromURL(client, iframeURL)
-				if err != nil {
-					fmt.Println(err)
-					return
-				}
-
-				mu.Lock()
-				for _, ip := range ipAddresses {
-					if len(uniqueIPs) >= requiredIPs {
-						mu.Unlock()
-						return
-					}
-					if _, exists := uniqueIPs[ip]; !exists {
-						uniqueIPs[ip] = true
-						fmt.Printf("找到IP: %s\n", ip)
-					}
-				}
-				mu.Unlock()
-			}()
-		}
-		wg.Wait()
-
-		mu.Lock()
-		if len(uniqueIPs) >= requiredIPs {
+			}
 			mu.Unlock()
-			break
-		}
-		mu.Unlock()
+		}()
 	}
+	wg.Wait()
 
-	// 将map转换为有序的slice
 	var result []string
 	for ip := range uniqueIPs {
 		result = append(result, ip)
 	}
 
-	// 确保返回的IP数量不超过requiredIPs
-	if len(result) > requiredIPs {
-		result = result[:requiredIPs]
+	if len(result) < minRequiredIPs {
+		return nil, fmt.Errorf("未能收集到最少的 %d 个IP地址，仅收集到 %d 个", minRequiredIPs, len(result))
+	}
+
+	if len(result) > maxRequiredIPs {
+		result = result[:maxRequiredIPs]
 	}
 
 	fmt.Printf("最终找到的Unique IPs: %v\n", result)
-	return result
+	return result, nil
 }
 
 func readWriteIPs(filePath string, ips []string, mode string) []string {
@@ -436,15 +410,17 @@ func compareIPLists(list1, list2 []string) bool {
 }
 
 var (
-	ipFilePath  string
-	maxAttempts int
-	requiredIPs int
+	ipFilePath     string
+	maxAttempts    int
+	minRequiredIPs int
+	maxRequiredIPs int
 )
 
 func init() {
 	flag.StringVar(&ipFilePath, "ip", "", "Path to the file containing IP addresses")
-	flag.IntVar(&maxAttempts, "maxAttempts", 35, "Maximum number of attempts")
-	flag.IntVar(&requiredIPs, "requiredIPs", 3, "Number of required unique IPs")
+	flag.IntVar(&maxAttempts, "maxAttempts", 30, "Maximum number of attempts")
+	flag.IntVar(&minRequiredIPs, "minRequiredIPs", 2, "Number of min required unique IPs")
+	flag.IntVar(&maxRequiredIPs, "maxRequiredIPs", 5, "Number of max required unique IPs")
 	initConfig()
 }
 
@@ -470,12 +446,16 @@ func main() {
 	if ipFilePath != "" {
 		uniqueIPs = readWriteIPs(ipFilePath, nil, "r")
 	} else {
-		uniqueIPs = getUniqueIPs(maxAttempts, requiredIPs)
+		uniqueIPs, err = getUniqueIPs(maxAttempts, minRequiredIPs, maxRequiredIPs)
+		if err != nil {
+			// 处理错误，例如打印日志或退出程序
+			log.Fatal(err)
+		}
 	}
 
 	// 确保IP数量符合要求
-	if len(uniqueIPs) > requiredIPs {
-		uniqueIPs = uniqueIPs[:requiredIPs]
+	if len(uniqueIPs) > maxRequiredIPs {
+		uniqueIPs = uniqueIPs[:maxRequiredIPs]
 	}
 
 	fmt.Printf("当前获取到的IPs: %v\n", uniqueIPs)
