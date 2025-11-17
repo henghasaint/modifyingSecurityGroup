@@ -46,7 +46,7 @@ CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -a -o modifyingSecurityGroup_mac
 
 # 在 linux 上运行
 
-## 创建 cron 任务
+## 方式1，创建 cron 任务
 
 复制 config.toml 和 modifyingSecurityGroup_linux 到 Linux 服务器上，在 config.toml 中配置适当的认证信息和安全组
 
@@ -73,6 +73,13 @@ crontab -e ，然后添加以下内容
 - --maxAttempts：最大尝试次数，用于在线获取 IP 地址时的并发请求数。默认值为 30。
 - --minRequiredIPs：所需的唯一 IP 数量。程序将在获取到指定数量的唯一 IP 后停止。默认值为 2。
 - --maxRequiredIPs：所需的唯一 IP 数量。程序将在获取到指定数量的唯一 IP 后停止。默认值为 5,此参数不应大于前面的 N 相等。
+
+## ## 方式1，创建 cron 任务（分成两段）
+```
+#更新腾讯云安全组
+0 0,2,4,6,8 * * * /data/workspace/projects-code/modifyingSecurityGroup/modifyingSG.sh 
+*/5 9-22 * * * /data/workspace/projects-code/modifyingSecurityGroup/modifyingSG.sh
+```
 
 # 在 Windows 上运行
 
